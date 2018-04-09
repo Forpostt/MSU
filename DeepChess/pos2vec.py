@@ -6,24 +6,26 @@ import sys
 import numpy as np
 import pickle
 
-BATCH_SIZE = 128
+BATCH_SIZE = 256
 MAX_SIZE_DATASET = 250000    # 250000
-VEC_SIZE = 769 
+VEC_SIZE = 769
 MAX_EPOCH = 30  # 40
+GPU_USE = False
 DTYPE = torch.FloatTensor
 
 
 class Boards(Dataset):
-    def __init__(self, txt_file_1=None, txt_file_2=None):
+    def __init__(self, txt_file_1=None, txt_file_2=None, max_size=MAX_SIZE_DATASET):
         self.boards = []
         self.txt_file_1 = txt_file_1
         self.txt_file_2 = txt_file_2
+        self.max_size = max_size
 
     def __len__(self):
         return len(self.boards)
 
     def __getitem__(self, idx):
-        board = torch.zeros(VEC_SIZE)
+        board = torch.zeros(VEC_SIZE).type(DTYPE)
         for i in self.boards[idx]:
             board[i] = 1
 
@@ -33,7 +35,7 @@ class Boards(Dataset):
         if self.txt_file_1 is not None:
             with open(self.txt_file_1, 'r') as f:
                 for i, line in enumerate(f):
-                    if i >= MAX_SIZE_DATASET:
+                    if i >= self.max_size:
                         break
                     line = map(int, line.strip().split())
                     self.boards.append(line)
@@ -41,7 +43,7 @@ class Boards(Dataset):
         if self.txt_file_2 is not None:
             with open(self.txt_file_2, 'r') as f:
                 for i, line in enumerate(f):
-                    if i >= MAX_SIZE_DATASET:
+                    if i >= self.max_size:
                         break
                     line = map(int, line.strip().split())
                     self.boards.append(line)
@@ -51,9 +53,9 @@ def save_checkpoint(state, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
 
 
-def train(autoencoder, pos2vec, dataloader, loss=torch.nn.MSELoss(), optim=torch.optim.Adam, max_epoch=MAX_EPOCH):
+def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH):
     train_loss_epochs = []
-    optimizer = optim(autoencoder.parameters(), lr=0.005)
+    optimizer = optim(autoencoder.parameters(), lr=0.001)
     try:
         for epoch in range(max_epoch):
             losses = []
@@ -74,17 +76,14 @@ def train(autoencoder, pos2vec, dataloader, loss=torch.nn.MSELoss(), optim=torch
             sys.stdout.write('\rEpoch {0}... Train MSE: {1:.6f}'.format(epoch, train_loss_epochs[-1]))
         
         return train_loss_epochs
-        #plt.figure(figsize=(8, 3))
-        #plt.plot(train_loss_epochs)
-        #plt.xlabel('Epoch', fontsize=16)
-        #plt.ylabel('MSE', fontsize=16)
     except KeyboardInterrupt:
         pass
-    
 
 
 def Pos2Vec(layers=None):
-    assert layers is not None and len(layers) > 1
+    if layers is None:
+        layers = [769, 500, 300, 100]
+    assert len(layers) > 1
     
     data = Boards('./data/win_games.txt', './data/lose_games.txt')
     data.read_games()
@@ -106,13 +105,14 @@ def Pos2Vec(layers=None):
         autoencoder = nn.Sequential(nn.BatchNorm1d(layers[i]), nn.Linear(layers[i], layers[i + 1]), 
                                     nn.BatchNorm1d(layers[i + 1]), nn.ReLU(), 
                                     nn.Linear(layers[i + 1], layers[i]))
+        if GPU_USE:
+            autoencoder = autoencoder.cuda()
+            pos2vec = pos2vec.cuda()
 
-        optim = torch.optim.Adam
+        optim = torch.optim.RMSprop
         loss = torch.nn.MSELoss()
         loss_step = train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH)
         losses.append(loss_step)
-        
-        save_checkpoint(autoencoder, './data/autoen_{}_{}_{}.pth.tar'.format(layers[i], layers[i + 1], layers[i]))
             
     fc = list(pos2vec.children()) + [list(autoencoder.children())[1]]
     pos2vec = nn.Sequential(*fc)
@@ -124,4 +124,6 @@ def Pos2Vec(layers=None):
 
 
 if __name__ == '__main__':
+    DTYPE = torch.cuda.FloatTensor
+    GPU_USE = True
     Pos2Vec(layers=[769, 500, 300, 100])
