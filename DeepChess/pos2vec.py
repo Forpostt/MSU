@@ -5,52 +5,14 @@ from torch.autograd import Variable
 import sys
 import numpy as np
 import pickle
+from boards import Boards
 
-BATCH_SIZE = 256
-MAX_SIZE_DATASET = 250000    # 250000
+BATCH_SIZE = 256  # 250000
 VEC_SIZE = 769
 MAX_EPOCH = 30  # 40
 GPU_USE = False
+DEVICE_NUM = 0
 DTYPE = torch.FloatTensor
-
-
-class Boards(Dataset):
-    def __init__(self, txt_file_1=None, txt_file_2=None, max_size=MAX_SIZE_DATASET):
-        self.boards = []
-        self.txt_file_1 = txt_file_1
-        self.txt_file_2 = txt_file_2
-        self.max_size = max_size
-
-    def __len__(self):
-        return len(self.boards)
-
-    def __getitem__(self, idx):
-        board = torch.zeros(VEC_SIZE).type(DTYPE)
-        for i in self.boards[idx]:
-            board[i] = 1
-
-        return board
-
-    def read_games(self):
-        if self.txt_file_1 is not None:
-            with open(self.txt_file_1, 'r') as f:
-                for i, line in enumerate(f):
-                    if i >= self.max_size:
-                        break
-                    line = map(int, line.strip().split())
-                    self.boards.append(line)
-
-        if self.txt_file_2 is not None:
-            with open(self.txt_file_2, 'r') as f:
-                for i, line in enumerate(f):
-                    if i >= self.max_size:
-                        break
-                    line = map(int, line.strip().split())
-                    self.boards.append(line)
-
-                    
-def save_checkpoint(state, filename='checkpoint.pth.tar'):
-    torch.save(state, filename)
 
 
 def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH):
@@ -85,7 +47,7 @@ def Pos2Vec(layers=None):
         layers = [769, 500, 300, 100]
     assert len(layers) > 1
     
-    data = Boards('./data/win_games.txt', './data/lose_games.txt')
+    data = Boards('./data/win_games.txt', './data/lose_games.txt', type=DTYPE)
     data.read_games()
     dataloader = DataLoader(data, batch_size=BATCH_SIZE, shuffle=True)
     
@@ -106,6 +68,7 @@ def Pos2Vec(layers=None):
                                     nn.BatchNorm1d(layers[i + 1]), nn.ReLU(), 
                                     nn.Linear(layers[i + 1], layers[i]))
         if GPU_USE:
+            torch.cuda.set_device(DEVICE_NUM)
             autoencoder = autoencoder.cuda()
             pos2vec = pos2vec.cuda()
 
@@ -118,7 +81,7 @@ def Pos2Vec(layers=None):
     pos2vec = nn.Sequential(*fc)
     for param in pos2vec.parameters():
         param.requires_grad = False
-    save_checkpoint(pos2vec, './data/pos2vec.pth.tar')
+    torch.save(pos2vec, './data/pos2vec.pth.tar')
     
     pickle.dump(losses, open("./data/losses.p", "wb"))
 
@@ -126,4 +89,5 @@ def Pos2Vec(layers=None):
 if __name__ == '__main__':
     DTYPE = torch.cuda.FloatTensor
     GPU_USE = True
+    DEVICE_NUM = 2
     Pos2Vec(layers=[769, 500, 300, 100])
