@@ -9,6 +9,17 @@ RESULT = {'1-0': 1, '0-1': 0, '1/2-1/2': -1}
 MAX_GAMES_COUNT = 50000     # max games count for save if file
 
 
+def find_pgn_files(path='./dataset/', find_all=False, base='data_0.pgn'):
+    if find_all:
+        files = []
+        for file in os.listdir(path):
+            if file.endswith('.pgn'):
+                files.append(path + file)
+        return files
+    else:
+        return [path + base]
+
+
 def games_in_file(path='./dataset/data.png'):
     f = open(path)
     g = chess.pgn.read_game(f)
@@ -31,20 +42,18 @@ def board_to_vec(board, result_game):
 
 
 def extract_boards(path='./dataset/'):
-    files = []
-    for file in os.listdir(path):
-        if file.endswith('.pgn'):
-            files.append(path + file)
     win_position = []
     lose_position = []
-    for file in files:
+    for file in find_pgn_files():
         for i, game in enumerate(games_in_file(file)):
             if i >= MAX_GAMES_COUNT:
                 break
             if RESULT[game.headers['Result']] == -1:    # skip draw
                 continue
             board = game.board()
-            for move in game.main_line():
+            for i, move in enumerate(game.main_line()):     # skip first 5 boards
+                if i < 5:
+                    continue
                 board.push(move)
                 if RESULT[game.headers['Result']]:
                     win_position.append(board_to_vec(board, 1))
