@@ -22,7 +22,7 @@ def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH):
         for epoch in range(max_epoch):
             losses = []
             for sample in dataloader:
-                X = Variable(sample.type(DTYPE))
+                X = Variable(sample)
                 y = pos2vec.forward(X)
 
                 optimizer.zero_grad()
@@ -35,7 +35,7 @@ def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH):
                 optimizer.step()
 
             train_loss_epochs.append(np.mean(losses))
-            sys.stdout.write('\rEpoch {0}... Train MSE: {1:.6f}'.format(epoch, train_loss_epochs[-1]))
+            print('\rEpoch {0}... Train MSE: {1:.6f}'.format(epoch, train_loss_epochs[-1]))
         
         return train_loss_epochs
     except KeyboardInterrupt:

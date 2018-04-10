@@ -3,7 +3,7 @@ from torch.utils.data import Dataset, DataLoader
 
 
 VEC_SIZE = 769
-
+MAX_SIZE_DATASET = 250000
 
 class Boards(Dataset):
     def __init__(self, txt_file_1=None, txt_file_2=None, max_size=MAX_SIZE_DATASET, type=torch.FloatTensor):

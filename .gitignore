@@ -1,2 +1,3 @@
-MSU/data/win_games.txt
-MSU/data/lose_games.txt
+DeepChess/data/win_games.txt
+DeepChess/data/lose_games.txt
+DeepChess/boards.pyc
