@@ -73,10 +73,11 @@ def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_e
 
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= 0.99
-
-            sys.stdout.write('\rEpoch {0}... MSE: {1:.6f}  Acc: {2:.6}'.format(epoch,
-                                                                               train_loss_epochs[-1],
-                                                                               train_acc[-1]))
+            
+            if epoch % 5 == 4:
+                torch.save(model, './data/model.pth.tar')
+ 
+            print('\rEpoch {0}... MSE: {1:.6f}  Acc: {2:.6}'.format(epoch, train_loss_epochs[-1], train_acc[-1]))
         return train_loss_epochs, train_acc
 
     except KeyboardInterrupt:
@@ -95,7 +96,7 @@ def DeepChess(layers=None):
     lose_data.read_games()
     lose_dataloader = DataLoader(lose_data, batch_size=BATCH_SIZE, shuffle=True)
 
-    pretrained = torch.load('./data/pos2vec.pth.tar')
+    pretrained = torch.load('./data/pos2vec_cpu.pth.tar')
 
     fc = [nn.BatchNorm1d(layers[0])]
     for i in range(len(layers))[:-2]:
@@ -121,5 +122,6 @@ if __name__ == '__main__':
     DTYPE = torch.cuda.FloatTensor
     BATCH_SIZE = 256
     MAX_EPOCHS = 50
+    DEVICE_NUM = 2
     MAX_DATASET_SIZE = 500000
     DeepChess()
