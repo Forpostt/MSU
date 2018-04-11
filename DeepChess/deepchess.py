@@ -75,15 +75,14 @@ def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_e
                 param_group['lr'] *= 0.99
             
             if epoch % 5 == 4:
-                torch.save(model, './data/model.pth.tar')
+                torch.save(model, './data/model_2.pth.tar')
  
             print('\rEpoch {0}... MSE: {1:.6f}  Acc: {2:.6}'.format(epoch, train_loss_epochs[-1], train_acc[-1]))
         return train_loss_epochs, train_acc
 
     except KeyboardInterrupt:
 	print('KeyboardInterrup!!!')
-        torch.save(model, './data/model.pth.tar')
-	return 0, 0
+        return train_loss_epochs, train_acc
 
 
 def DeepChess(layers=None):
@@ -112,11 +111,11 @@ def DeepChess(layers=None):
         pretrained = pretrained.cuda()
 
     loss = nn.MSELoss()
-    optim = torch.optim.Adam
+    optim = torch.optim.RMSprop
 
     losses, acc = train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, MAX_EPOCHS)
-    pickle.dump([losses, acc], open('./data/model_acc_loss.p', 'w'))
-    torch.save(model, './data/model.pth.tar')
+    pickle.dump([losses, acc], open('./data/model_acc_loss_2.p', 'w'))
+    torch.save(model, './data/model_2.pth.tar')
 
 
 if __name__ == '__main__':
