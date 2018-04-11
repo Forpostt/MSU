@@ -81,7 +81,9 @@ def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_e
         return train_loss_epochs, train_acc
 
     except KeyboardInterrupt:
-        torch.save(model, './data/model.pth.rar')
+	print('KeyboardInterrup!!!')
+        torch.save(model, './data/model.pth.tar')
+	return 0, 0
 
 
 def DeepChess(layers=None):
@@ -112,7 +114,7 @@ def DeepChess(layers=None):
     loss = nn.MSELoss()
     optim = torch.optim.Adam
 
-    losses, acc = train(model, pretrained, win_dataloader, lose_dataloader, loss, optim)
+    losses, acc = train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, MAX_EPOCHS)
     pickle.dump([losses, acc], open('./data/model_acc_loss.p', 'w'))
     torch.save(model, './data/model.pth.tar')
 
