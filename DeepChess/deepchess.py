@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 from torch.autograd import Variable
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from boards import Boards
 import numpy as np
 import pickle
@@ -37,16 +37,18 @@ def shuffle_tenzor(good_sample, bad_sample, pretrained):
     return X, y
 
 
-def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_epochs=MAX_EPOCHS):
+def train(model, pretrained, win_dataloader_train, win_dataloader_test,
+          lose_dataloader_train, lose_dataloader_test, loss, optim, max_epochs=MAX_EPOCHS):
+
     train_loss_epochs = []
     train_acc = []
     optimizer = optim(model.parameters(), lr=LEARNING_RATE)
     try:
         for epoch in range(max_epochs):
             losses = []
-            it = iter(lose_dataloader)
-            for i, sample in enumerate(win_dataloader):
-                X, y = shuffle_tenzor(sample, it.next(), pretrained)
+            it = iter(lose_dataloader_train)
+            for i, sample in enumerate(win_dataloader_train):
+                X, y = shuffle_tenzor(sample.type(DTYPE), it.next().type(DTYPE), pretrained)
 
                 optimizer.zero_grad()
                 prediction = model.forward(Variable(X))
@@ -59,30 +61,28 @@ def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_e
 
             train_loss_epochs.append(np.mean(losses))
 
-            right_answer = 0
-            data_size = 0
-            it = iter(lose_dataloader)
-            for i, sample in enumerate(win_dataloader):
+            correct = 0
+            count = 0
+            it = iter(lose_dataloader_test)
+            for i, sample in enumerate(win_dataloader_test):
                 X, y = shuffle_tenzor(sample, it.next(), pretrained)
 
                 prediction = model.forward(Variable(X)).data
-                data_size += sample.shape[0]
-                right_answer += ((prediction * y).sum(1) > 0.5).sum()
+                count += sample.shape[0]
+                correct += ((prediction * y).sum(1) > 0.5).sum()
 
-            train_acc.append(float(right_answer) / float(data_size))
+            train_acc.append(float(correct) / float(count))
 
             for param_group in optimizer.param_groups:
                 param_group['lr'] *= 0.99
-            
-            if epoch % 5 == 4:
-                torch.save(model, './data/model_2.pth.tar')
- 
-            print('\rEpoch {0}... MSE: {1:.6f}  Acc: {2:.6}'.format(epoch, train_loss_epochs[-1], train_acc[-1]))
+
+            sys.stdout.write('\rEpoch {0}... MSE: {1:.6f}  Acc: {2:.6}'.format(epoch,
+                                                                               train_loss_epochs[-1],
+                                                                               train_acc[-1]))
         return train_loss_epochs, train_acc
 
     except KeyboardInterrupt:
-	print('KeyboardInterrup!!!')
-        return train_loss_epochs, train_acc
+        torch.save(model, './data/model.pth.rar')
 
 
 def DeepChess(layers=None):
@@ -90,14 +90,17 @@ def DeepChess(layers=None):
         layers = [200, 400, 200, 100, 2]
     assert len(layers) > 1
 
-    win_data = Boards('./data/win_games.txt', max_size=MAX_DATASET_SIZE, type=DTYPE)
-    win_data.read_games()
-    win_dataloader = DataLoader(win_data, batch_size=BATCH_SIZE, shuffle=True)
-    lose_data = Boards('./data/lose_games.txt', max_size=MAX_DATASET_SIZE, type=DTYPE)
-    lose_data.read_games()
-    lose_dataloader = DataLoader(lose_data, batch_size=BATCH_SIZE, shuffle=True)
+    win_data_train = Boards('./data/win_games.txt', max_size=MAX_DATASET_SIZE).read_games()
+    win_dataloader_train = DataLoader(win_data_train, batch_size=BATCH_SIZE, shuffle=True)
+    lose_data_train = Boards('./data/lose_games.txt', max_size=MAX_DATASET_SIZE).read_games()
+    lose_dataloader_train = DataLoader(lose_data_train, batch_size=BATCH_SIZE, shuffle=True)
 
-    pretrained = torch.load('./data/pos2vec_cpu.pth.tar')
+    win_data_test = Boards('./data/win_games.txt', max_size=50000).read_games()
+    win_dataloader_test = DataLoader(win_data_test, batch_size=BATCH_SIZE, shuffle=True)
+    lose_data_test = Boards('./data/lose_games.txt', max_size=50000).read_games()
+    lose_dataloader_test = DataLoader(lose_data_test, batch_size=BATCH_SIZE, shuffle=True)
+
+    pretrained = torch.load('./data/pos2vec.pth.tar')
 
     fc = [nn.BatchNorm1d(layers[0])]
     for i in range(len(layers))[:-2]:
@@ -111,11 +114,12 @@ def DeepChess(layers=None):
         pretrained = pretrained.cuda()
 
     loss = nn.MSELoss()
-    optim = torch.optim.RMSprop
+    optim = torch.optim.Adam
 
-    losses, acc = train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, MAX_EPOCHS)
-    pickle.dump([losses, acc], open('./data/model_acc_loss_2.p', 'w'))
-    torch.save(model, './data/model_2.pth.tar')
+    losses, acc = train(model, pretrained, win_dataloader_train, win_dataloader_test,
+                        lose_dataloader_train, lose_dataloader_test, loss, optim)
+    pickle.dump([losses, acc], open('./data/model_acc_loss.p', 'w'))
+    torch.save(model, './data/model.pth.tar')
 
 
 if __name__ == '__main__':
@@ -123,6 +127,5 @@ if __name__ == '__main__':
     DTYPE = torch.cuda.FloatTensor
     BATCH_SIZE = 256
     MAX_EPOCHS = 50
-    DEVICE_NUM = 2
     MAX_DATASET_SIZE = 500000
     DeepChess()

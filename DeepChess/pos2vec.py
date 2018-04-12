@@ -9,7 +9,8 @@ from boards import Boards
 
 BATCH_SIZE = 256  # 250000
 VEC_SIZE = 769
-MAX_EPOCH = 30  # 40
+MAX_SIZE = 250000
+MAX_EPOCH = 20  # 40
 GPU_USE = False
 DEVICE_NUM = 0
 DTYPE = torch.FloatTensor
@@ -17,12 +18,12 @@ DTYPE = torch.FloatTensor
 
 def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH):
     train_loss_epochs = []
-    optimizer = optim(autoencoder.parameters(), lr=0.001)
+    optimizer = optim(autoencoder.parameters(), lr=0.01)
     try:
         for epoch in range(max_epoch):
             losses = []
             for sample in dataloader:
-                X = Variable(sample)
+                X = Variable(sample.type(DTYPE))
                 y = pos2vec.forward(X)
 
                 optimizer.zero_grad()
@@ -34,20 +35,24 @@ def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH):
                 loss_batch.backward()
                 optimizer.step()
 
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] *= 0.98
+
             train_loss_epochs.append(np.mean(losses))
-            print('\rEpoch {0}... Train MSE: {1:.6f}'.format(epoch, train_loss_epochs[-1]))
+            sys.stdout.write('\rEpoch {0}... Train MSE: {1:.6f}'.format(epoch, train_loss_epochs[-1]))
         
         return train_loss_epochs
     except KeyboardInterrupt:
-        pass
+        print 'KeyboardInterrupt'
+        return train_loss_epochs
 
 
 def Pos2Vec(layers=None):
     if layers is None:
-        layers = [769, 500, 300, 100]
+        layers = [769, 600, 400, 200, 100]
     assert len(layers) > 1
     
-    data = Boards('./data/win_games.txt', './data/lose_games.txt', type=DTYPE)
+    data = Boards('./data/win_games.txt', './data/lose_games.txt', max_size=MAX_SIZE)
     data.read_games()
     dataloader = DataLoader(data, batch_size=BATCH_SIZE, shuffle=True)
     
@@ -90,4 +95,6 @@ if __name__ == '__main__':
     DTYPE = torch.cuda.FloatTensor
     GPU_USE = True
     DEVICE_NUM = 2
-    Pos2Vec(layers=[769, 500, 300, 100])
+    MAX_EPOCH = 40
+    BATCH_SIZE = 256
+    Pos2Vec(layers=[769, 600, 400, 200, 100])
