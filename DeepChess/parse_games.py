@@ -48,7 +48,7 @@ def extract_boards(path='./dataset/'):
     for file in find_pgn_files(find_all=True):
         for game in games_in_file(file):
             if games_count >= MAX_GAMES_COUNT:
-                break
+                return win_position, lose_position
             if RESULT[game.headers['Result']] == -1:    # skip draw
                 continue
             board = game.board()
@@ -78,5 +78,6 @@ def dump_games(win_path='./data/win_games.txt', lose_path='./data/lose_games.txt
 
 
 if __name__ == '__main__':
+    MAX_GAMES_COUNT = 50000
     dump_games(positions=extract_boards())
 

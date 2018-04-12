@@ -1,3 +1,7 @@
 DeepChess/data/win_games.txt
 DeepChess/data/lose_games.txt
 DeepChess/boards.pyc
+DeepChess/test.py
+DeepChess/*.ipynb
+DeepChess/.ipynb_checkpoints/*
+DeepChess/.idea/*

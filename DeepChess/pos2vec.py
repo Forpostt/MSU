@@ -6,19 +6,31 @@ import sys
 import numpy as np
 import pickle
 from boards import Boards
+import matplotlib.pyplot as plt
 
-BATCH_SIZE = 256  # 250000
+
+BATCH_SIZE = 64  # 250000
 VEC_SIZE = 769
-MAX_SIZE = 250000
-MAX_EPOCH = 20  # 40
+MAX_SIZE = 5000
+MAX_EPOCH = 10  # 40
 GPU_USE = False
 DEVICE_NUM = 0
+LEARNING_RATE = 0.005
 DTYPE = torch.FloatTensor
 
 
-def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH):
+def init_he_linear(input_size, output_size):
+    layer = nn.Linear(input_size, output_size)
+    weight = layer.state_dict()['weight']
+    bias = layer.state_dict()['bias']
+    bias.zero_()
+    weight.normal_(0, np.sqrt(float(2) / float(output_size)))
+    return layer
+
+
+def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH, eps=1e-5):
     train_loss_epochs = []
-    optimizer = optim(autoencoder.parameters(), lr=0.01)
+    optimizer = optim(autoencoder.parameters(), lr=0.001)
     try:
         for epoch in range(max_epoch):
             losses = []
@@ -35,12 +47,17 @@ def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH):
                 loss_batch.backward()
                 optimizer.step()
 
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] *= 0.98
+            for param_group in optimizer.param_groups:
+                param_group['lr'] *= 0.98
 
             train_loss_epochs.append(np.mean(losses))
-            sys.stdout.write('\rEpoch {0}... Train MSE: {1:.6f}'.format(epoch, train_loss_epochs[-1]))
-        
+
+            if len(train_loss_epochs) > 1 and abs(train_loss_epochs[-1] - train_loss_epochs[-2]) < eps:
+                print "Delta of error is smaller then eps!"
+                return train_loss_epochs
+
+            print('\rEpoch {0}... Train MSE: {1:.6f}'.format(epoch, train_loss_epochs[-1]))
+
         return train_loss_epochs
     except KeyboardInterrupt:
         print 'KeyboardInterrupt'
@@ -51,12 +68,12 @@ def Pos2Vec(layers=None):
     if layers is None:
         layers = [769, 600, 400, 200, 100]
     assert len(layers) > 1
-    
+
     data = Boards('./data/win_games.txt', './data/lose_games.txt', max_size=MAX_SIZE)
     data.read_games()
     dataloader = DataLoader(data, batch_size=BATCH_SIZE, shuffle=True)
-    
-    pos2vec = None 
+
+    pos2vec = None
     autoencoder = None
     losses = []
     for i in range(len(layers))[:-1]:
@@ -65,13 +82,13 @@ def Pos2Vec(layers=None):
         else:
             fc = list(pos2vec.children()) + list(autoencoder.children())[1:-1]
             pos2vec = nn.Sequential(*fc)
-        
+
         for param in pos2vec.parameters():
             param.requires_grad = False
 
-        autoencoder = nn.Sequential(nn.BatchNorm1d(layers[i]), nn.Linear(layers[i], layers[i + 1]), 
-                                    nn.BatchNorm1d(layers[i + 1]), nn.ReLU(), 
-                                    nn.Linear(layers[i + 1], layers[i]))
+        autoencoder = nn.Sequential(nn.BatchNorm1d(layers[i]), init_he_linear(layers[i], layers[i + 1]),
+                                    nn.BatchNorm1d(layers[i + 1]), nn.ReLU(),
+                                    init_he_linear(layers[i + 1], layers[i]))
         if GPU_USE:
             torch.cuda.set_device(DEVICE_NUM)
             autoencoder = autoencoder.cuda()
@@ -95,6 +112,7 @@ if __name__ == '__main__':
     DTYPE = torch.cuda.FloatTensor
     GPU_USE = True
     DEVICE_NUM = 2
-    MAX_EPOCH = 40
+    MAX_EPOCH = 50
     BATCH_SIZE = 256
+    MAX_SIZE = 500000
     Pos2Vec(layers=[769, 600, 400, 200, 100])
