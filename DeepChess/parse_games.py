@@ -53,9 +53,10 @@ def extract_boards(path='./dataset/'):
                 continue
             board = game.board()
             for i, move in enumerate(game.main_line()):     # skip first 5 boards
-                if i < 6:
-                    continue
                 board.push(move)
+		if i < 6:
+                    continue
+                
                 if RESULT[game.headers['Result']]:
                     win_position.append(board_to_vec(board, i % 2))
                 else:

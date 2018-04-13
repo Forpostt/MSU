@@ -28,7 +28,7 @@ def init_he_linear(input_size, output_size):
     return layer
 
 
-def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH, eps=1e-5):
+def train(autoencoder, pos2vec, dataloader, loss, optim, max_epoch=MAX_EPOCH, eps=1e-8):
     train_loss_epochs = []
     optimizer = optim(autoencoder.parameters(), lr=0.001)
     try:
