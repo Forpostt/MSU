@@ -5,3 +5,4 @@ DeepChess/test.py
 DeepChess/*.ipynb
 DeepChess/.ipynb_checkpoints/*
 DeepChess/.idea/*
+DeepChess/chess/*
