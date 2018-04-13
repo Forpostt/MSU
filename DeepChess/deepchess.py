@@ -90,7 +90,7 @@ def train(model, pretrained, win_dataloader, lose_dataloader, win_dataloader_tes
             if len(train_acc) > 1 and abs(train_acc[-1] - train_acc[-2]) < 1e-5:
                 print('Delta is smaller than eps')
                 return train_loss_epochs, train_acc
-
+	    print(count)
             print('\rEpoch {0}... MSE: {1:.6f}  Acc: {2:.6}'.format(epoch,
                                                                                train_loss_epochs[-1],
                                                                                train_acc[-1]))
