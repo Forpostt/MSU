@@ -12,7 +12,7 @@ import random
 DTYPE = torch.FloatTensor
 DTYPE_2 = torch.LongTensor
 BATCH_SIZE = 64
-MAX_EPOCHS = 20
+MAX_EPOCHS = 70
 VEC_SIZE = 100
 GPU_USE = False
 DEVICE_NUM = 0
@@ -39,11 +39,11 @@ def shuffle_tenzor(good_sample, bad_sample, pretrained):
         if random.randint(0, 1):
             X[i, :VEC_SIZE] = sample_0[i]
             X[i, VEC_SIZE:] = sample_1[i]
-            y[i] = 1
+            y[i] = 0
         else:
             X[i, :VEC_SIZE] = sample_1[i]
             X[i, VEC_SIZE:] = sample_0[i]
-            y[i] = 0
+            y[i] = 1
     return X, y
 
 
@@ -77,7 +77,7 @@ def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_e
 
                 prediction = model.forward(Variable(X)).data
                 count += sample.shape[0]
-                correct += (np.argmax(prediction, 1) == y).sum()
+                correct += (np.argmax(prediction.cpu().numpy(), 1) == y.cpu().numpy()).sum()
 
             train_acc.append(float(correct) / float(count))
 
@@ -85,9 +85,12 @@ def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_e
                 param_group['lr'] *= 0.99
 
             if epoch % 5 == 4:
-                torch.save(model, './data/model.pth.tar')
+                torch.save(model, './data/model_2.pth.tar')
+	    if len(train_acc) > 1 and abs(train_acc[-1] - train_acc[-2]) < 1e-5:
+		print('Delta is smaller than eps')
+		return train_loss_epochs, train_acc
 
-            sys.stdout.write('\rEpoch {0}... MSE: {1:.6f}  Acc: {2:.6}'.format(epoch,
+            print('\rEpoch {0}... MSE: {1:.6f}  Acc: {2:.6}'.format(epoch,
                                                                                train_loss_epochs[-1],
                                                                                train_acc[-1]))
         return train_loss_epochs, train_acc
@@ -125,11 +128,11 @@ def DeepChess(layers=None):
         pretrained = pretrained.cuda()
 
     loss = nn.CrossEntropyLoss()
-    optim = torch.optim.Adam
+    optim = torch.optim.RMSprop
 
     losses, acc = train(model, pretrained, win_dataloader, lose_dataloader, loss, optim)
-    pickle.dump([losses, acc], open('./data/model_acc_loss.p', 'w'))
-    torch.save(model, './data/model.pth.tar')
+    pickle.dump([losses, acc], open('./data/model_acc_loss_2.p', 'w'))
+    torch.save(model, './data/model_2.pth.tar')
 
 
 if __name__ == '__main__':
