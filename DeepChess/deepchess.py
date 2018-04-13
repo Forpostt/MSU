@@ -47,7 +47,7 @@ def shuffle_tenzor(good_sample, bad_sample, pretrained):
     return X, y
 
 
-def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_epochs=MAX_EPOCHS):
+def train(model, pretrained, win_dataloader, lose_dataloader, win_dataloader_test, lose_dataloader_test, loss, optim, max_epochs=MAX_EPOCHS):
     train_loss_epochs = []
     train_acc = []
     optimizer = optim(model.parameters(), lr=LEARNING_RATE)
@@ -71,8 +71,8 @@ def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_e
 
             correct = 0
             count = 0
-            it = iter(lose_dataloader)
-            for i, sample in enumerate(win_dataloader):
+            it = iter(lose_dataloader_test)
+            for i, sample in enumerate(win_dataloader_test):
                 X, y = shuffle_tenzor(sample.type(DTYPE), it.next().type(DTYPE), pretrained)
 
                 prediction = model.forward(Variable(X)).data
@@ -86,9 +86,10 @@ def train(model, pretrained, win_dataloader, lose_dataloader, loss, optim, max_e
 
             if epoch % 5 == 4:
                 torch.save(model, './data/model_2.pth.tar')
-	    if len(train_acc) > 1 and abs(train_acc[-1] - train_acc[-2]) < 1e-5:
-		print('Delta is smaller than eps')
-		return train_loss_epochs, train_acc
+
+            if len(train_acc) > 1 and abs(train_acc[-1] - train_acc[-2]) < 1e-5:
+                print('Delta is smaller than eps')
+                return train_loss_epochs, train_acc
 
             print('\rEpoch {0}... MSE: {1:.6f}  Acc: {2:.6}'.format(epoch,
                                                                                train_loss_epochs[-1],
@@ -115,6 +116,13 @@ def DeepChess(layers=None):
     lose_data.read_games()
     lose_dataloader = DataLoader(lose_data, batch_size=BATCH_SIZE, shuffle=True)
 
+    win_data_test = Boards('./data/win_games.txt', max_size=50000)
+    win_data_test.read_games()
+    win_dataloader_test = DataLoader(win_data_test, batch_size=BATCH_SIZE, shuffle=True)
+    lose_data_test = Boards('./data/lose_games.txt', max_size=50000)
+    lose_data_test.read_games()
+    lose_dataloader_test = DataLoader(lose_data_test, batch_size=BATCH_SIZE, shuffle=True)
+
     pretrained = torch.load('./data/pos2vec.pth.tar')
 
     fc = [nn.BatchNorm1d(layers[0])]
@@ -130,7 +138,8 @@ def DeepChess(layers=None):
     loss = nn.CrossEntropyLoss()
     optim = torch.optim.RMSprop
 
-    losses, acc = train(model, pretrained, win_dataloader, lose_dataloader, loss, optim)
+    losses, acc = train(model, pretrained, win_dataloader, lose_dataloader,
+                        win_dataloader_test, lose_dataloader_test, loss, optim)
     pickle.dump([losses, acc], open('./data/model_acc_loss_2.p', 'w'))
     torch.save(model, './data/model_2.pth.tar')
 
